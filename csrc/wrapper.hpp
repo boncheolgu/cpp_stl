@@ -17,10 +17,7 @@ VECTOR_OF(int8_t);
 VECTOR_OF(int16_t);
 VECTOR_OF(int32_t);
 VECTOR_OF(int64_t);
-
-struct alignas(alignof(std::vector<int32_t>)) vector_of_i32 {
-  uint8_t payload[sizeof(std::vector<int32_t>)];
-};
+VECTOR_OF(float);
 
 struct alignas(alignof(std::vector<std::unique_ptr<void>>))
     vector_of_unique_ptr {

@@ -1,7 +1,7 @@
 use std::ffi::c_void;
 use std::fmt;
 use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut, Index, IndexMut};
+use std::ops::{Index, IndexMut};
 use std::slice;
 
 use libc::size_t;
@@ -39,6 +39,72 @@ cpp! {{
     };
 }}
 
+pub trait BasicVector {
+    type Item;
+
+    fn get_ptr(&self) -> *const Self::Item;
+
+    fn get_mut_ptr(&self) -> *mut Self::Item;
+
+    fn size(&self) -> size_t;
+
+    fn push_back(&mut self, v: Self::Item);
+
+    fn pop_back(&mut self);
+}
+
+pub trait Vector: BasicVector
+where
+    <Self as BasicVector>::Item: Clone,
+{
+    fn as_slice(&self) -> &[Self::Item];
+
+    fn as_mut_slice(&mut self) -> &mut [Self::Item];
+
+    fn resize(&mut self, new_len: usize, value: Self::Item);
+
+    fn assign<I: IntoIterator<Item = Self::Item>>(&mut self, vs: I);
+
+    fn clear(&mut self);
+}
+
+impl<T> Vector for T
+where
+    T: BasicVector,
+    <T as BasicVector>::Item: Clone,
+{
+    fn as_slice(&self) -> &[Self::Item] {
+        unsafe { slice::from_raw_parts(self.get_ptr(), self.size()) }
+    }
+
+    fn as_mut_slice(&mut self) -> &mut [Self::Item] {
+        unsafe { slice::from_raw_parts_mut(self.get_mut_ptr(), self.size()) }
+    }
+
+    fn resize(&mut self, new_len: usize, value: Self::Item) {
+        while self.size() < new_len {
+            self.push_back(value.clone());
+        }
+
+        while self.size() > new_len {
+            self.pop_back();
+        }
+    }
+
+    fn assign<I: IntoIterator<Item = Self::Item>>(&mut self, vs: I) {
+        self.clear();
+        for v in vs {
+            self.push_back(v);
+        }
+    }
+
+    fn clear(&mut self) {
+        while self.size() != 0 {
+            self.pop_back();
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Debug)]
 pub struct VectorOfBool(vector_of_bool);
@@ -47,63 +113,77 @@ pub struct VectorOfBool(vector_of_bool);
 #[derive(Debug)]
 pub struct VectorOfU8(vector_of_uint8_t);
 
+impl BasicVector for VectorOfU8 {
+    type Item = u8;
+
+    fn get_ptr(&self) -> *const Self::Item {
+        unsafe {
+            cpp!([self as "const std::vector<uint8_t>*"]
+                  -> *const u8 as "const uint8_t*" {
+                return self->data();
+            })
+        }
+    }
+
+    fn get_mut_ptr(&self) -> *mut Self::Item {
+        unsafe {
+            cpp!([self as "std::vector<uint8_t>*"]
+                  -> *mut u8 as "const uint8_t*" {
+                return self->data();
+            })
+        }
+    }
+
+    fn size(&self) -> size_t {
+        unsafe {
+            cpp!([self as "const std::vector<uint8_t>*"] -> size_t as "size_t" {
+                return self->size();
+            })
+        }
+    }
+
+    fn push_back(&mut self, v: Self::Item) {
+        unsafe {
+            cpp!([self as "std::vector<uint8_t>*", v as "uint8_t"] {
+                self->push_back(v);
+            })
+        }
+    }
+
+    fn pop_back(&mut self) {
+        unsafe {
+            cpp!([self as "std::vector<uint8_t>*"] {
+                self->pop_back();
+            })
+        }
+    }
+}
+
 #[repr(C)]
 pub struct VectorOfI32(vector_of_int32_t);
 
-impl Deref for VectorOfI32 {
-    type Target = [i32];
+impl BasicVector for VectorOfI32 {
+    type Item = i32;
 
-    fn deref(&self) -> &Self::Target {
-        self.as_slice()
+    fn get_ptr(&self) -> *const Self::Item {
+        unsafe {
+            cpp!([self as "const std::vector<int32_t>*"]
+                  -> *const i32 as "const int32_t*" {
+                return self->data();
+            })
+        }
     }
-}
 
-impl DerefMut for VectorOfI32 {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.as_slice_mut()
+    fn get_mut_ptr(&self) -> *mut Self::Item {
+        unsafe {
+            cpp!([self as "std::vector<int32_t>*"]
+                  -> *mut i32 as "const int32_t*" {
+                return self->data();
+            })
+        }
     }
-}
 
-impl Index<usize> for VectorOfI32 {
-    type Output = i32;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.as_slice()[index]
-    }
-}
-
-impl IndexMut<usize> for VectorOfI32 {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.as_slice_mut()[index]
-    }
-}
-
-impl<'a> IntoIterator for &'a VectorOfI32 {
-    type Item = &'a i32;
-    type IntoIter = slice::Iter<'a, i32>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a mut VectorOfI32 {
-    type Item = &'a mut i32;
-    type IntoIter = slice::IterMut<'a, i32>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter_mut()
-    }
-}
-
-impl fmt::Debug for VectorOfI32 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_list().entries(self.iter()).finish()
-    }
-}
-
-impl VectorOfI32 {
-    pub fn size(&self) -> size_t {
+    fn size(&self) -> size_t {
         unsafe {
             cpp!([self as "const std::vector<int32_t>*"] -> size_t as "size_t" {
                 return self->size();
@@ -111,36 +191,7 @@ impl VectorOfI32 {
         }
     }
 
-    pub fn as_slice(&self) -> &[i32] {
-        let ptr = unsafe {
-            cpp!([self as "const std::vector<int32_t>*"]
-                  -> *const i32 as "const int32_t*" {
-                return self->data();
-            })
-        };
-        unsafe { slice::from_raw_parts(ptr, self.size()) }
-    }
-
-    pub fn as_slice_mut(&mut self) -> &mut [i32] {
-        let ptr = unsafe {
-            cpp!([self as "std::vector<int32_t>*"]
-                  -> *mut i32 as "int32_t*" {
-                return self->data();
-            })
-        };
-        unsafe { slice::from_raw_parts_mut(ptr, self.size()) }
-    }
-
-    pub fn resize(&mut self, new_len: usize, value: i32) {
-        let new_len = new_len as size_t;
-        unsafe {
-            cpp!([self as "std::vector<int32_t>*", new_len as "size_t", value as "int32_t"] {
-                self->resize(new_len, value);
-            })
-        }
-    }
-
-    pub fn push_back(&mut self, v: i32) {
+    fn push_back(&mut self, v: Self::Item) {
         unsafe {
             cpp!([self as "std::vector<int32_t>*", v as "int32_t"] {
                 self->push_back(v);
@@ -148,43 +199,60 @@ impl VectorOfI32 {
         }
     }
 
-    pub fn pop_back(&mut self) {
+    fn pop_back(&mut self) {
         unsafe {
             cpp!([self as "std::vector<int32_t>*"] {
                 self->pop_back();
             })
         }
     }
+}
 
-    pub fn back(&self) -> &i32 {
+#[repr(C)]
+pub struct VectorOfF32(vector_of_float);
+
+impl BasicVector for VectorOfF32 {
+    type Item = f32;
+
+    fn get_ptr(&self) -> *const Self::Item {
         unsafe {
-            cpp!([self as "std::vector<int32_t>*"] -> &i32 as "const int32_t*" {
-                return &self->back();
+            cpp!([self as "const std::vector<float>*"]
+                  -> *const f32 as "const float*" {
+                return self->data();
             })
         }
     }
 
-    pub fn clear(&mut self) {
+    fn get_mut_ptr(&self) -> *mut Self::Item {
         unsafe {
-            cpp!([self as "std::vector<int32_t>*"] {
-                self->clear();
+            cpp!([self as "std::vector<float>*"]
+                  -> *mut f32 as "const float*" {
+                return self->data();
             })
         }
     }
 
-    pub fn erase(&mut self, pos: usize) {
-        let pos = pos as size_t;
+    fn size(&self) -> size_t {
         unsafe {
-            cpp!([self as "std::vector<int32_t>*", pos as "size_t"] {
-                self->erase(self->begin() + pos);
+            cpp!([self as "const std::vector<float>*"] -> size_t as "size_t" {
+                return self->size();
             })
         }
     }
 
-    pub fn assign<I: IntoIterator<Item = i32>>(&mut self, vs: I) {
-        self.clear();
-        for v in vs {
-            self.push_back(v);
+    fn push_back(&mut self, v: Self::Item) {
+        unsafe {
+            cpp!([self as "std::vector<float>*", v as "float"] {
+                self->push_back(v);
+            })
+        }
+    }
+
+    fn pop_back(&mut self) {
+        unsafe {
+            cpp!([self as "std::vector<float>*"] {
+                self->pop_back();
+            })
         }
     }
 }
@@ -348,20 +416,20 @@ mod tests {
         assert_eq!(x.names[0].last_name.c_str().to_string_lossy(), "gu");
         assert_eq!(x.names[1].first_name.c_str().to_string_lossy(), "bora");
         assert_eq!(x.names[1].last_name.c_str().to_string_lossy(), "hong");
-        assert_eq!(x.ages[0], 7);
-        assert_eq!(x.ages[1], 10);
-        assert_eq!(x.ages[2], 42);
+        assert_eq!(x.ages.as_slice()[0], 7);
+        assert_eq!(x.ages.as_slice()[1], 10);
+        assert_eq!(x.ages.as_slice()[2], 42);
         assert_eq!(x.cities[0].c_str().to_string_lossy(), "seoungnam");
         assert_eq!(x.derived[0].value, 99);
         assert_eq!(x.derived[0].desc.c_str().to_string_lossy(), "derived");
 
-        x.ids[0] = 20;
-        x.ids[2] = 43;
+        x.ids.as_mut_slice()[0] = 20;
+        x.ids.as_mut_slice()[2] = 43;
         assert_eq!(x.ids.as_slice(), &[20i32, 18, 43, 31]);
 
         x.ids.push_back(9);
         assert_eq!(x.ids.size(), 5);
-        assert_eq!(x.ids.back(), &9);
+        assert_eq!(x.ids.as_slice().last().unwrap(), &9);
 
         x.ages.assign(vec![8, 7]);
         assert_eq!(x.ages.as_slice(), &[8, 7]);

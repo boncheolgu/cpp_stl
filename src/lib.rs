@@ -23,11 +23,11 @@ mod tests {
 
         assert_eq!(
             size_of::<vector::VectorOfI32>(),
-            size_of::<rust::vector_of_i32>()
+            size_of::<rust::vector_of_int32_t>()
         );
         assert_eq!(
             align_of::<vector::VectorOfI32>(),
-            align_of::<rust::vector_of_i32>()
+            align_of::<rust::vector_of_int32_t>()
         );
 
         assert_eq!(
