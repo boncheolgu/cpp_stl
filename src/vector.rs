@@ -46,11 +46,13 @@ pub trait BasicVector {
 
     fn get_mut_ptr(&self) -> *mut Self::Item;
 
-    fn size(&self) -> size_t;
+    fn size(&self) -> usize;
 
     fn push_back(&mut self, v: Self::Item);
 
     fn pop_back(&mut self);
+
+    fn erase(&mut self, offset: usize, size: usize);
 }
 
 pub trait Vector: BasicVector
@@ -66,6 +68,8 @@ where
     fn assign<I: IntoIterator<Item = Self::Item>>(&mut self, vs: I);
 
     fn clear(&mut self);
+
+    fn retain(&mut self, pred: fn(usize, &Self::Item) -> bool);
 }
 
 impl<T> Vector for T
@@ -101,6 +105,19 @@ where
     fn clear(&mut self) {
         while self.size() != 0 {
             self.pop_back();
+        }
+    }
+
+    fn retain(&mut self, pred: fn(usize, &Self::Item) -> bool) {
+        let removed: Vec<_> = self
+            .as_slice()
+            .iter()
+            .enumerate()
+            .filter_map(|(i, op)| if pred(i, op) { None } else { Some(i) })
+            .collect();
+
+        for i in removed.into_iter().rev() {
+            self.erase(i, 1);
         }
     }
 }
@@ -194,7 +211,7 @@ impl BasicVector for VectorOfU8 {
         }
     }
 
-    fn size(&self) -> size_t {
+    fn size(&self) -> usize {
         unsafe {
             cpp!([self as "const std::vector<uint8_t>*"] -> size_t as "size_t" {
                 return self->size();
@@ -215,6 +232,16 @@ impl BasicVector for VectorOfU8 {
             cpp!([self as "std::vector<uint8_t>*"] {
                 self->pop_back();
             })
+        }
+    }
+
+    fn erase(&mut self, offset: usize, size: usize) {
+        let begin = offset as size_t;
+        let end = offset + size as size_t;
+        unsafe {
+            cpp!([self as "std::vector<uint8_t>*", begin as "size_t", end as "size_t"] {
+                self->erase(self->begin() + begin, self->begin() + end);
+            });
         }
     }
 }
@@ -243,7 +270,7 @@ impl BasicVector for VectorOfI32 {
         }
     }
 
-    fn size(&self) -> size_t {
+    fn size(&self) -> usize {
         unsafe {
             cpp!([self as "const std::vector<int32_t>*"] -> size_t as "size_t" {
                 return self->size();
@@ -264,6 +291,16 @@ impl BasicVector for VectorOfI32 {
             cpp!([self as "std::vector<int32_t>*"] {
                 self->pop_back();
             })
+        }
+    }
+
+    fn erase(&mut self, offset: usize, size: usize) {
+        let begin = offset as size_t;
+        let end = offset + size as size_t;
+        unsafe {
+            cpp!([self as "std::vector<int32_t>*", begin as "size_t", end as "size_t"] {
+                self->erase(self->begin() + begin, self->begin() + end);
+            });
         }
     }
 }
@@ -292,7 +329,7 @@ impl BasicVector for VectorOfI64 {
         }
     }
 
-    fn size(&self) -> size_t {
+    fn size(&self) -> usize {
         unsafe {
             cpp!([self as "const std::vector<int64_t>*"] -> size_t as "size_t" {
                 return self->size();
@@ -313,6 +350,16 @@ impl BasicVector for VectorOfI64 {
             cpp!([self as "std::vector<int64_t>*"] {
                 self->pop_back();
             })
+        }
+    }
+
+    fn erase(&mut self, offset: usize, size: usize) {
+        let begin = offset as size_t;
+        let end = offset + size as size_t;
+        unsafe {
+            cpp!([self as "std::vector<int64_t>*", begin as "size_t", end as "size_t"] {
+                self->erase(self->begin() + begin, self->begin() + end);
+            });
         }
     }
 }
@@ -341,7 +388,7 @@ impl BasicVector for VectorOfF32 {
         }
     }
 
-    fn size(&self) -> size_t {
+    fn size(&self) -> usize {
         unsafe {
             cpp!([self as "const std::vector<float>*"] -> size_t as "size_t" {
                 return self->size();
@@ -362,6 +409,16 @@ impl BasicVector for VectorOfF32 {
             cpp!([self as "std::vector<float>*"] {
                 self->pop_back();
             })
+        }
+    }
+
+    fn erase(&mut self, offset: usize, size: usize) {
+        let begin = offset as size_t;
+        let end = offset + size as size_t;
+        unsafe {
+            cpp!([self as "std::vector<float>*", begin as "size_t", end as "size_t"] {
+                self->erase(self->begin() + begin, self->begin() + end);
+            });
         }
     }
 }
@@ -436,7 +493,7 @@ impl<'a, T> Iterator for Iter<'a, T> {
 }
 
 impl<T> VectorOfUniquePtr<T> {
-    pub fn size(&self) -> size_t {
+    pub fn size(&self) -> usize {
         unsafe {
             cpp!([self as "const std::vector<std::unique_ptr<void>>*"] -> size_t as "size_t" {
                 return self->size();
