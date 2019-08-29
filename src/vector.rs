@@ -429,7 +429,7 @@ pub struct Iter<'a, T> {
 }
 
 #[repr(C)]
-pub struct VectorOfUniquePtr<T>(vector_of_unique_ptr, PhantomData<T>);
+pub struct VectorOfUniquePtr<T>(vector_of_dummy_unique_ptr, PhantomData<T>);
 
 impl<T> Index<usize> for VectorOfUniquePtr<T> {
     type Output = T;
@@ -546,7 +546,7 @@ mod tests {
 
         assert_eq!(
             mem::size_of::<VectorOfUniquePtr<i32>>(),
-            mem::size_of::<vector_of_unique_ptr>()
+            mem::size_of::<vector_of_dummy_unique_ptr>()
         );
 
         let x = unsafe {

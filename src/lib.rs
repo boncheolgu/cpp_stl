@@ -32,11 +32,11 @@ mod tests {
 
         assert_eq!(
             size_of::<vector::VectorOfUniquePtr<string::String>>(),
-            size_of::<rust::vector_of_unique_ptr>()
+            size_of::<rust::vector_of_dummy_unique_ptr>()
         );
         assert_eq!(
             align_of::<vector::VectorOfUniquePtr<string::String>>(),
-            align_of::<rust::vector_of_unique_ptr>()
+            align_of::<rust::vector_of_dummy_unique_ptr>()
         );
     }
 }
