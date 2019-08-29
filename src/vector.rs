@@ -1,7 +1,7 @@
 use std::ffi::c_void;
 use std::fmt;
 use std::marker::PhantomData;
-use std::ops::{Index, IndexMut};
+use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::slice;
 
 use libc::size_t;
@@ -105,6 +105,67 @@ where
     }
 }
 
+macro_rules! add_impl {
+    ($($t:ty)*) => ($(
+        impl fmt::Debug for $t
+        where
+            <$t as BasicVector>::Item: fmt::Debug,
+        {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.debug_list().entries(self.as_slice().iter()).finish()
+            }
+        }
+
+        impl Deref for $t {
+            type Target = [<$t as BasicVector>::Item];
+
+            fn deref(&self) -> &Self::Target {
+                self.as_slice()
+            }
+        }
+
+        impl DerefMut for $t {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                self.as_mut_slice()
+            }
+        }
+
+        impl Index<usize> for $t {
+            type Output = <$t as BasicVector>::Item;
+
+            fn index(&self, index: usize) -> &Self::Output {
+                &self.as_slice()[index]
+            }
+        }
+
+        impl IndexMut<usize> for $t {
+            fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+                &mut self.as_mut_slice()[index]
+            }
+        }
+
+        impl<'a> IntoIterator for &'a $t {
+            type Item = &'a <$t as BasicVector>::Item;
+            type IntoIter = slice::Iter<'a, <$t as BasicVector>::Item>;
+
+            fn into_iter(self) -> Self::IntoIter {
+                self.iter()
+            }
+        }
+
+        impl<'a> IntoIterator for &'a mut $t {
+            type Item = &'a mut <$t as BasicVector>::Item;
+            type IntoIter = slice::IterMut<'a, <$t as BasicVector>::Item>;
+
+            fn into_iter(self) -> Self::IntoIter {
+                self.iter_mut()
+            }
+        }
+    )*)
+}
+
+add_impl!(VectorOfU8 VectorOfI32 VectorOfI64 VectorOfF32);
+
 #[repr(C)]
 #[derive(Debug)]
 pub struct VectorOfBool(vector_of_bool);
@@ -158,15 +219,6 @@ impl BasicVector for VectorOfU8 {
     }
 }
 
-impl fmt::Debug for VectorOfU8
-where
-    <VectorOfU8 as BasicVector>::Item: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_list().entries(self.as_slice().iter()).finish()
-    }
-}
-
 #[repr(C)]
 pub struct VectorOfI32(vector_of_int32_t);
 
@@ -213,15 +265,6 @@ impl BasicVector for VectorOfI32 {
                 self->pop_back();
             })
         }
-    }
-}
-
-impl fmt::Debug for VectorOfI32
-where
-    <VectorOfI32 as BasicVector>::Item: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_list().entries(self.as_slice().iter()).finish()
     }
 }
 
@@ -274,15 +317,6 @@ impl BasicVector for VectorOfI64 {
     }
 }
 
-impl fmt::Debug for VectorOfI64
-where
-    <VectorOfI64 as BasicVector>::Item: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_list().entries(self.as_slice().iter()).finish()
-    }
-}
-
 #[repr(C)]
 pub struct VectorOfF32(vector_of_float);
 
@@ -329,15 +363,6 @@ impl BasicVector for VectorOfF32 {
                 self->pop_back();
             })
         }
-    }
-}
-
-impl fmt::Debug for VectorOfF32
-where
-    <VectorOfF32 as BasicVector>::Item: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_list().entries(self.as_slice().iter()).finish()
     }
 }
 
@@ -500,20 +525,20 @@ mod tests {
         assert_eq!(x.names[0].last_name.c_str().to_string_lossy(), "gu");
         assert_eq!(x.names[1].first_name.c_str().to_string_lossy(), "bora");
         assert_eq!(x.names[1].last_name.c_str().to_string_lossy(), "hong");
-        assert_eq!(x.ages.as_slice()[0], 7);
-        assert_eq!(x.ages.as_slice()[1], 10);
-        assert_eq!(x.ages.as_slice()[2], 42);
+        assert_eq!(x.ages[0], 7);
+        assert_eq!(x.ages[1], 10);
+        assert_eq!(x.ages[2], 42);
         assert_eq!(x.cities[0].c_str().to_string_lossy(), "seoungnam");
         assert_eq!(x.derived[0].value, 99);
         assert_eq!(x.derived[0].desc.c_str().to_string_lossy(), "derived");
 
-        x.ids.as_mut_slice()[0] = 20;
-        x.ids.as_mut_slice()[2] = 43;
+        x.ids[0] = 20;
+        x.ids[2] = 43;
         assert_eq!(x.ids.as_slice(), &[20i32, 18, 43, 31]);
 
         x.ids.push_back(9);
         assert_eq!(x.ids.size(), 5);
-        assert_eq!(x.ids.as_slice().last().unwrap(), &9);
+        assert_eq!(x.ids.last().unwrap(), &9);
 
         x.ages.assign(vec![8, 7]);
         assert_eq!(x.ages.as_slice(), &[8, 7]);
