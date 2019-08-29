@@ -110,7 +110,6 @@ where
 pub struct VectorOfBool(vector_of_bool);
 
 #[repr(C)]
-#[derive(Debug)]
 pub struct VectorOfU8(vector_of_uint8_t);
 
 impl BasicVector for VectorOfU8 {
@@ -156,6 +155,15 @@ impl BasicVector for VectorOfU8 {
                 self->pop_back();
             })
         }
+    }
+}
+
+impl fmt::Debug for VectorOfU8
+where
+    <VectorOfU8 as BasicVector>::Item: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.as_slice().iter()).finish()
     }
 }
 
@@ -208,6 +216,15 @@ impl BasicVector for VectorOfI32 {
     }
 }
 
+impl fmt::Debug for VectorOfI32
+where
+    <VectorOfI32 as BasicVector>::Item: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.as_slice().iter()).finish()
+    }
+}
+
 #[repr(C)]
 pub struct VectorOfI64(vector_of_int64_t);
 
@@ -257,6 +274,15 @@ impl BasicVector for VectorOfI64 {
     }
 }
 
+impl fmt::Debug for VectorOfI64
+where
+    <VectorOfI64 as BasicVector>::Item: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.as_slice().iter()).finish()
+    }
+}
+
 #[repr(C)]
 pub struct VectorOfF32(vector_of_float);
 
@@ -303,6 +329,15 @@ impl BasicVector for VectorOfF32 {
                 self->pop_back();
             })
         }
+    }
+}
+
+impl fmt::Debug for VectorOfF32
+where
+    <VectorOfF32 as BasicVector>::Item: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.as_slice().iter()).finish()
     }
 }
 
