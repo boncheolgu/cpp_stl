@@ -26,4 +26,8 @@ struct alignas(alignof(std::vector<std::unique_ptr<void>>))
     vector_of_unique_ptr {
   uint8_t payload[sizeof(std::vector<std::unique_ptr<void>>)];
 };
+
+struct alignas(alignof(std::unique_ptr<void>)) unique_ptr_of_void {
+  uint8_t payload[sizeof(std::unique_ptr<void>)];
+};
 } // namespace rust

@@ -202,26 +202,28 @@ impl<T> Index<usize> for VectorOfUniquePtr<T> {
 
     fn index(&self, index: usize) -> &Self::Output {
         let index = index as size_t;
-        let ptr = unsafe {
-            cpp!([self as "const std::vector<std::unique_ptr<void>>*", index as "size_t"]
+        unsafe {
+            let ptr = cpp!([self as "const std::vector<std::unique_ptr<void>>*", index as "size_t"]
                   -> *const c_void as "const void*" {
                 return (*self)[index].get();
-            }) as *const Self::Output
-        };
-        unsafe { &*ptr as &Self::Output }
+            }) as *const Self::Output;
+
+            ptr.as_ref().unwrap()
+        }
     }
 }
 
 impl<T> IndexMut<usize> for VectorOfUniquePtr<T> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         let index = index as size_t;
-        let ptr = unsafe {
-            cpp!([self as "std::vector<std::unique_ptr<void>>*", index as "size_t"]
+        unsafe {
+            let ptr = cpp!([self as "std::vector<std::unique_ptr<void>>*", index as "size_t"]
                   -> *mut c_void as "void*" {
                 return (*self)[index].get();
-            }) as *mut Self::Output
-        };
-        unsafe { &mut *ptr as &mut Self::Output }
+            }) as *mut Self::Output;
+
+            ptr.as_mut().unwrap()
+        }
     }
 }
 

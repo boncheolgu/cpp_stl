@@ -4,6 +4,7 @@
 extern crate cpp;
 
 mod bindings;
+pub mod memory;
 pub mod string;
 pub mod vector;
 
