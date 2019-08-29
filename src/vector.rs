@@ -209,6 +209,55 @@ impl BasicVector for VectorOfI32 {
 }
 
 #[repr(C)]
+pub struct VectorOfI64(vector_of_int64_t);
+
+impl BasicVector for VectorOfI64 {
+    type Item = i64;
+
+    fn get_ptr(&self) -> *const Self::Item {
+        unsafe {
+            cpp!([self as "const std::vector<int64_t>*"]
+                  -> *const i64 as "const int64_t*" {
+                return self->data();
+            })
+        }
+    }
+
+    fn get_mut_ptr(&self) -> *mut Self::Item {
+        unsafe {
+            cpp!([self as "std::vector<int64_t>*"]
+                  -> *mut i64 as "const int64_t*" {
+                return self->data();
+            })
+        }
+    }
+
+    fn size(&self) -> size_t {
+        unsafe {
+            cpp!([self as "const std::vector<int64_t>*"] -> size_t as "size_t" {
+                return self->size();
+            })
+        }
+    }
+
+    fn push_back(&mut self, v: Self::Item) {
+        unsafe {
+            cpp!([self as "std::vector<int64_t>*", v as "int64_t"] {
+                self->push_back(v);
+            })
+        }
+    }
+
+    fn pop_back(&mut self) {
+        unsafe {
+            cpp!([self as "std::vector<int64_t>*"] {
+                self->pop_back();
+            })
+        }
+    }
+}
+
+#[repr(C)]
 pub struct VectorOfF32(vector_of_float);
 
 impl BasicVector for VectorOfF32 {
